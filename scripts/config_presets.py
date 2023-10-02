@@ -870,37 +870,6 @@ class Script(scripts.Script):
         #if component.elem_id == "txt2img_gallery_container" or component.elem_id == "img2img_gallery_container": #bottom of the image gallery, doesn't work
         if component.elem_id == "txt2img_generation_info_button" or component.elem_id == "img2img_generation_info_button": #very bottom of the txt2img/img2img image gallery
             
-
-            #Javascript injection for click tracking
-            self.add_js_code("""
-            document.addEventListener('click', function(event) {
-                let element = event.target;
-                let elementID = element.id;
-                let elementType = element.nodeName;
-
-                fetch('/track_click', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        id: elementID,
-                        type: elementType
-                    })
-                });
-            });
-        """)
-            @app.route('/track_click', methods=['POST'])
-            def track_click():
-                data = flask.request.get_json()
-                element_id = data.get('id')
-                element_type = data.get('type')
-    
-                # Add code to handle the tracked element ID and type
-                # Add it to your list of tracked components
-
-                return "Click tracked successfully"
-
             #print("Creating dropdown values...")
             #print("key/value pairs in component_map:")
 
@@ -1151,17 +1120,105 @@ class Script(scripts.Script):
 
                         with gr.Row():
                             with gr.Column(scale=1):
-                                open_custom_tracked_components_config_file_button = gr.Button(
-                                    value="👨‍💻 Add custom fields...",
-                                    elem_id="script_config_preset_open_custom_tracked_components_config",
+                                track_new_components_button = gr.Button(
+                                value="👨‍💻 Add custom fields...",
+                                elem_id="track_new_components_button",
                                 )
-                                open_custom_tracked_components_config_file_button.click(
-                                    fn=lambda: open_file(f"{BASEDIR}/{custom_tracked_components_config_file_name}"),
-                                    inputs=[],
-                                    outputs=[],
-                                )
-                            with gr.Column(scale=2):
-                                pass
+
+                                if os.path.exists('temp_data.json'):
+                                    with open('temp_data.json', 'r') as f:
+                                        Data = json.load(f)
+
+                                        hierarchicalData = {}
+                                        for component in Data:
+                                            parent_id = component['parent_id']
+                                            component_id = component['id']
+                                            component_type = component['type']
+
+                                        if parent_id not in hierarchicalData:
+                                            hierarchicalData[parent_id] = {}
+                                        
+                                        hierarchicalData[parent_id][component_id] = {"type": component_type}
+
+                                    def process_saved_data():
+                                        global hierarchicalData
+                                        temp_file_path = 'temp_data.json'
+                                        with open(temp_file_path, 'r') as f:
+                                            hierarchicalData = json.load(f)
+
+                                    # Define CheckboxGroup
+                                    checkbox_group = gr.inputs.CheckboxGroup(
+                                        choices=[],  # We'll populate this later
+                                        label="Select Components",
+                                        type="value",
+                                    )
+
+                                    TrackInterface = gr.Interface(
+                                        inputs=gr.inputs.InputGroup([checkbox_group]),
+                                        outputs=gr.outputs.Textbox(),
+                                        live=False,
+                                        examples=[[]],
+                                        fn=process_selected_options,
+                                    )
+
+                                    TrackInterface.launch()
+
+
+
+                                else:
+                                    track_new_components_button.click(
+                                        None,  # No Python function needed, set to None
+                                        [],    # No inputs needed, empty list
+                                        [],    # No outputs needed, empty list
+                                        _js="""
+                                        'use strict';
+                                        function clickEventHandler(event) {
+                                            console.log('Click event triggered');
+                                            let element = event.target;
+
+                                            if (!element.id.match(/^component-\d{1,4}$/) &&
+                                                !element.classList.contains('gradio-accordion') &&
+                                                !element.classList.contains('gradio-tabs') &&
+                                                !element.classList.contains('gradio-tabitem') &&
+                                                !element.classList.contains('svelte-19hvt5v')) {
+
+                                                let elementID = element.id;
+                                                let elementType = element.nodeName;
+
+                                                let parent = element.parentElement;
+                                                let hierarchy = [];
+                                                while (parent && parent !== document.body) {
+                                                    hierarchy.unshift(parent.id);
+                                                    parent = parent.parentElement;
+                                                }
+
+                                                let currentLevel = hierarchicalData;
+                                                hierarchy.forEach(level => {
+                                                    if (!currentLevel[level]) {
+                                                        currentLevel[level] = {};
+                                                    }
+                                                    currentLevel = currentLevel[level];
+                                                });
+                                                currentLevel[element.id] = { type: elementType };
+
+                                                let data = JSON.stringify({ hierarchicalData });
+                                                let blob = new Blob([data], { type: 'application/json' });
+                                                let url = URL.createObjectURL(blob);
+
+                                                let a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = 'temp_data.json';
+                                                a.click();
+                                                URL.revokeObjectURL(url);
+
+                                                document.removeEventListener('click', clickEventHandler); // Remove the event listener
+                                            }
+                                        }
+
+                                        document.addEventListener('click', clickEventHandler);
+                                        """
+                                    )
+
 
 
     def ui(self, is_img2img):

@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Define a variable to store the hierarchical structure
   let hierarchicalData = {};
 
-  document.getElementById('script_config_preset_open_custom_tracked_components_config').addEventListener('click', function() {
+  document.getElementById('track_new_components_button').addEventListener('click', function() {
       document.addEventListener('click', function(event) {
           let element = event.target;
 
