@@ -869,6 +869,37 @@ class Script(scripts.Script):
         #if component.elem_id == "txt2img_results" or component.elem_id == "img2img_results": #bottom of the image gallery, doesn't work
         #if component.elem_id == "txt2img_gallery_container" or component.elem_id == "img2img_gallery_container": #bottom of the image gallery, doesn't work
         if component.elem_id == "txt2img_generation_info_button" or component.elem_id == "img2img_generation_info_button": #very bottom of the txt2img/img2img image gallery
+            
+
+            #Javascript injection for click tracking
+            self.add_js_code("""
+            document.addEventListener('click', function(event) {
+                let element = event.target;
+                let elementID = element.id;
+                let elementType = element.nodeName;
+
+                fetch('/track_click', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        id: elementID,
+                        type: elementType
+                    })
+                });
+            });
+        """)
+            @app.route('/track_click', methods=['POST'])
+            def track_click():
+                data = flask.request.get_json()
+                element_id = data.get('id')
+                element_type = data.get('type')
+    
+                # Add code to handle the tracked element ID and type
+                # Add it to your list of tracked components
+
+                return "Click tracked successfully"
 
             #print("Creating dropdown values...")
             #print("key/value pairs in component_map:")
@@ -1121,7 +1152,7 @@ class Script(scripts.Script):
                         with gr.Row():
                             with gr.Column(scale=1):
                                 open_custom_tracked_components_config_file_button = gr.Button(
-                                    value="📂 Add custom fields...",
+                                    value="👨‍💻 Add custom fields...",
                                     elem_id="script_config_preset_open_custom_tracked_components_config",
                                 )
                                 open_custom_tracked_components_config_file_button.click(
