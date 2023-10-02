@@ -1,18 +1,49 @@
-<script>
-function trackClick(event) {
-  // Filter out accordion style UI elements
-  if (event.target.classList.contains('accordion')) return;
+document.addEventListener('DOMContentLoaded', function() {
+  // Define a variable to store the hierarchical structure
+  let hierarchicalData = {};
 
-  // Filter out elements with IDs following the pattern "component-xxxx"
-  let idPattern = /^component-\d{1,4}$/;
-  if (event.target.id.match(idPattern)) return;
+  document.getElementById('script_config_preset_open_custom_tracked_components_config').addEventListener('click', function() {
+      document.addEventListener('click', function(event) {
+          let element = event.target;
 
-  // Send data to Python script via Gradio
-  gr.interface.openFile(
-    '/scripts/config_presets.py',
-    { data: event.target.tagName + ' - ' + event.target.id }
-  );
-}
+          // Check if the element ID matches the pattern
+          if (!element.id.match(/^component-\d{1,4}$/) &&
+              !element.classList.contains('gradio-accordion') &&
+              !element.classList.contains('gradio-tabs') &&
+              !element.classList.contains('gradio-tabitem') &&
+              !element.classList.contains('svelte-19hvt5v')) {
 
-document.addEventListener('click', trackClick);
-</script>
+              let elementID = element.id;
+              let elementType = element.nodeName;
+
+              // Create a hierarchy based on parent-child relationships
+              let parent = element.parentElement;
+              let hierarchy = [];
+              while (parent && parent !== document.body) {
+                  hierarchy.unshift(parent.id);
+                  parent = parent.parentElement;
+              }
+
+              // Add the element to the hierarchicalData
+              let currentLevel = hierarchicalData;
+              hierarchy.forEach(level => {
+                  if (!currentLevel[level]) {
+                      currentLevel[level] = {};
+                  }
+                  currentLevel = currentLevel[level];
+              });
+              currentLevel[element.id] = { type: elementType };
+
+              fetch('/track_click', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                      hierarchicalData
+                  })
+              });
+          }
+      });
+  });
+});
